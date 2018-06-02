@@ -71,40 +71,6 @@
 /************************************************************************/
 /******/ ({
 
-/***/ "./src/Canvas2DChromosomeRenderer.ts":
-/*!*******************************************!*\
-  !*** ./src/Canvas2DChromosomeRenderer.ts ***!
-  \*******************************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", { value: true });
-var Canvas2DChromosomeRenderer = /** @class */ (function () {
-    function Canvas2DChromosomeRenderer(renderingContext) {
-        this.renderingContext = renderingContext;
-    }
-    Canvas2DChromosomeRenderer.prototype.render = function (chromosome, width, height) {
-        var _this = this;
-        this.renderingContext.clearRect(0, 0, width, height);
-        chromosome.circles.forEach(function (c) {
-            _this.renderingContext.beginPath();
-            _this.renderingContext.fillStyle = c.color.toString();
-            _this.renderingContext.arc(c.x * width, c.y * height, c.radius * Math.min(width, height), 0, Math.PI * 2);
-            _this.renderingContext.fill();
-        });
-    };
-    Canvas2DChromosomeRenderer.prototype.getImageData = function (width, height) {
-        return this.renderingContext.getImageData(0, 0, width, height);
-    };
-    return Canvas2DChromosomeRenderer;
-}());
-exports.default = Canvas2DChromosomeRenderer;
-
-
-/***/ }),
-
 /***/ "./src/Chromosome.ts":
 /*!***************************!*\
   !*** ./src/Chromosome.ts ***!
@@ -351,9 +317,9 @@ exports.default = Color;
 "use strict";
 
 Object.defineProperty(exports, "__esModule", { value: true });
-var Canvas2DChromosomeRenderer_1 = __webpack_require__(/*! ./Canvas2DChromosomeRenderer */ "./src/Canvas2DChromosomeRenderer.ts");
 var Chromosome_1 = __webpack_require__(/*! ./Chromosome */ "./src/Chromosome.ts");
 var ChromosomeFitnessCalculator_1 = __webpack_require__(/*! ./ChromosomeFitnessCalculator */ "./src/ChromosomeFitnessCalculator.ts");
+var WebGLChromosomeRenderer_1 = __webpack_require__(/*! ./webgl/WebGLChromosomeRenderer */ "./src/webgl/WebGLChromosomeRenderer.ts");
 var inMemoryCanvas1 = document.createElement('canvas');
 var inMemoryCanvas2 = document.createElement('canvas');
 var inMemoryContext1 = inMemoryCanvas1.getContext('webgl');
@@ -366,8 +332,8 @@ window.loadImage = function (fileInput) {
     img.src = URL.createObjectURL(fileInput.files[0]);
     img.onload = function () {
         var c = document.getElementById('myCanvas');
-        var t = c.getContext('2d');
-        // let t = c.getContext('webgl');
+        // let t = c.getContext('2d');
+        var t = c.getContext('webgl');
         c.width = img.width;
         c.height = img.height;
         inMemoryCanvas1.width = img.width;
@@ -377,17 +343,17 @@ window.loadImage = function (fileInput) {
         inMemoryContext2.drawImage(img, 0, 0);
         var baseImageData = inMemoryContext2.getImageData(0, 0, c.width, c.height);
         inMemoryContext2.clearRect(0, 0, c.width, c.height);
-        // const inMemoryRenderer = new WebGLChromosomeRenderer(inMemoryContext1);
-        var inMemoryRenderer = new Canvas2DChromosomeRenderer_1.default(inMemoryContext2);
+        var inMemoryRenderer = new WebGLChromosomeRenderer_1.default(inMemoryContext1);
+        // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         var fitnessCalc = new ChromosomeFitnessCalculator_1.default(inMemoryRenderer, baseImageData);
-        var chromosomeSize = 50;
-        var populationSize = 50;
+        var chromosomeSize = 300;
+        var populationSize = 30;
         var BestPopulationCutOff = Math.floor(populationSize / 4);
         var generation = 0;
         var population = [];
         for (var i = 0; i < populationSize; i++)
             population.push(Chromosome_1.default.getRandomChromosome(chromosomeSize));
-        population.sort(function (a, b) { return fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a); });
+        // population.sort((a, b) => fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a));
         function start() {
             var newPopulation = [];
             for (var i = 0; i < populationSize; i++) {
@@ -400,16 +366,172 @@ window.loadImage = function (fileInput) {
             newPopulation.sort(function (a, b) { return fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a); });
             population = newPopulation;
             generation++;
-            inMemoryRenderer.render(population[0], c.width, c.height);
-            t.putImageData(inMemoryRenderer.getImageData(c.width, c.height), 0, 0);
+            // new WebGLChromosomeRenderer(t).render(population[0], c.width, c.height);
             var fitnessInPercent = 100 * fitnessCalc.calculateFitness(population[0]) / (c.width * c.height * 4 * (255 * 255));
             stats.innerHTML = ('fitness: ' + fitnessInPercent.toFixed(2) + '<br />Generation: ' + generation);
         }
         // new Canvas2DChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
-        // new WebGLChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
-        setInterval(start, 10);
+        new WebGLChromosomeRenderer_1.default(t).render(Chromosome_1.default.getRandomChromosome(chromosomeSize), c.width, c.height);
+        // setInterval(start, 10);
     };
 };
+
+
+/***/ }),
+
+/***/ "./src/webgl/CircleTextureBuilder.ts":
+/*!*******************************************!*\
+  !*** ./src/webgl/CircleTextureBuilder.ts ***!
+  \*******************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var CircleTextureBuilder = /** @class */ (function () {
+    function CircleTextureBuilder() {
+    }
+    CircleTextureBuilder.prototype.checkPowOf2 = function (n) {
+        return n && (n & (n - 1)) === 0;
+    };
+    CircleTextureBuilder.prototype.calcDistance = function (x1, y1, x2, y2) {
+        return Math.sqrt((x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1));
+    };
+    CircleTextureBuilder.prototype.build = function (textureSize) {
+        if (!this.checkPowOf2(textureSize))
+            throw new Error("Texture Size Must Be A Power Of 2");
+        var result = new ImageData(textureSize, textureSize);
+        for (var row = 0; row < textureSize; row++) {
+            for (var col = 0; col < textureSize; col++) {
+                var val = 0;
+                var x = col - textureSize / 2;
+                var y = row - textureSize / 2;
+                if (this.calcDistance(x, y, 0, 0) <= textureSize / 2)
+                    val = 255;
+                var pixelIndex = (row * textureSize + col) * 4;
+                result.data[pixelIndex + 0] = val;
+                result.data[pixelIndex + 1] = val;
+                result.data[pixelIndex + 2] = val;
+                result.data[pixelIndex + 3] = val;
+            }
+        }
+        return result;
+    };
+    return CircleTextureBuilder;
+}());
+exports.default = CircleTextureBuilder;
+
+
+/***/ }),
+
+/***/ "./src/webgl/WebGLChromosomeRenderer.ts":
+/*!**********************************************!*\
+  !*** ./src/webgl/WebGLChromosomeRenderer.ts ***!
+  \**********************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var CircleTextureBuilder_1 = __webpack_require__(/*! ./CircleTextureBuilder */ "./src/webgl/CircleTextureBuilder.ts");
+var WebGLChromosomeRenderer = /** @class */ (function () {
+    function WebGLChromosomeRenderer(renderingContext) {
+        this.renderingContext = renderingContext;
+        this.vsSource = "\n    attribute vec4 aVertexPosition;\n    attribute vec2 aTextureCoord;\n\n    uniform vec2 uResolution;\n\n    varying highp vec2 vTextureCoord;\n\n    void main() {\n        vec4 scaledPosition = aVertexPosition * vec4(1.0 / uResolution.x, 1.0 / uResolution.y, 1.0, 1.0);\n        gl_Position = scaledPosition + vec4(-1.0, -1.0, 0.0, 0.0);\n        vTextureCoord = aTextureCoord;\n    }";
+        this.fsSource = "\n    varying highp vec2 vTextureCoord;\n\n    uniform sampler2D uSampler;\n\n    void main() {\n        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);\n        gl_FragColor.a = texture2D(uSampler, vTextureCoord).a;\n    }";
+        this.setup();
+    }
+    WebGLChromosomeRenderer.prototype.setup = function () {
+        var gl = this.renderingContext;
+        var vertexShader = this.loadShader(gl.VERTEX_SHADER, this.vsSource);
+        var fragmentShader = this.loadShader(gl.FRAGMENT_SHADER, this.fsSource);
+        this.shaderProgram = gl.createProgram();
+        gl.attachShader(this.shaderProgram, vertexShader);
+        gl.attachShader(this.shaderProgram, fragmentShader);
+        gl.linkProgram(this.shaderProgram);
+        if (!gl.getProgramParameter(this.shaderProgram, gl.LINK_STATUS)) {
+            throw new Error('Unable to initialize the shader program: ' + gl.getProgramInfoLog(this.shaderProgram));
+        }
+        this.programInfo = {
+            attribLocations: {
+                vertexPosition: gl.getAttribLocation(this.shaderProgram, 'aVertexPosition'),
+                textureCoord: gl.getAttribLocation(this.shaderProgram, 'aTextureCoord')
+            },
+            uniformLocations: {
+                resolution: gl.getUniformLocation(this.shaderProgram, 'uResolution'),
+                uSampler: gl.getUniformLocation(this.shaderProgram, 'uSampler')
+            },
+        };
+        this.circleTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.circleTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, new CircleTextureBuilder_1.default().build(256));
+        gl.generateMipmap(gl.TEXTURE_2D);
+    };
+    WebGLChromosomeRenderer.prototype.loadShader = function (type, source) {
+        var shader = this.renderingContext.createShader(type);
+        this.renderingContext.shaderSource(shader, source);
+        this.renderingContext.compileShader(shader);
+        if (!this.renderingContext.getShaderParameter(shader, this.renderingContext.COMPILE_STATUS)) {
+            var errorMessage = 'An error occurred compiling the shaders: ' + this.renderingContext.getShaderInfoLog(shader);
+            this.renderingContext.deleteShader(shader);
+            throw new Error(errorMessage);
+        }
+        return shader;
+    };
+    WebGLChromosomeRenderer.prototype.render = function (chromosome, width, height) {
+        var gl = this.renderingContext;
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.clearDepth(1.0);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.viewport(0, 0, width, height);
+        var positions = [
+            0.0, 0.0,
+            256.0, 0.0,
+            0.0, 256.0,
+            256.0, 256.0,
+            256.0, 0.0,
+            0.0, 256.0
+        ];
+        var texCoords = [
+            0.0, 0.0,
+            1.0, 0.0,
+            0.0, 1.0,
+            1.0, 1.0,
+            1.0, 0.0,
+            0.0, 1.0
+        ];
+        var positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+        gl.vertexAttribPointer(this.programInfo.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(this.programInfo.attribLocations.vertexPosition);
+        var texCoordBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+        gl.vertexAttribPointer(this.programInfo.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(this.programInfo.attribLocations.textureCoord);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, this.circleTexture);
+        gl.useProgram(this.shaderProgram);
+        gl.uniform2fv(this.programInfo.uniformLocations.resolution, [width, height]);
+        gl.uniform1i(this.programInfo.uniformLocations.uSampler, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+    };
+    WebGLChromosomeRenderer.prototype.getImageData = function (width, height) {
+        var buffer = new Uint8Array(width * height * 4);
+        this.renderingContext.readPixels(0, 0, width, height, this.renderingContext.RGBA, this.renderingContext.UNSIGNED_BYTE, buffer);
+        var result = new ImageData(Uint8ClampedArray.from(buffer), width, height);
+        return result;
+    };
+    return WebGLChromosomeRenderer;
+}());
+exports.default = WebGLChromosomeRenderer;
 
 
 /***/ })

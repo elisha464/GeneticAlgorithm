@@ -1,7 +1,8 @@
 import Canvas2DChromosomeRenderer from './Canvas2DChromosomeRenderer';
 import Chromosome from './Chromosome';
 import ChromosomeFitnessCalculator from './ChromosomeFitnessCalculator';
-import WebGLChromosomeRenderer from './WebGLChromosomeRenderer';
+import WebGLChromosomeRenderer from './webgl/WebGLChromosomeRenderer';
+import CircleTextureBuilder from './webgl/CircleTextureBuilder';
 
 let inMemoryCanvas1 = document.createElement('canvas');
 let inMemoryCanvas2 = document.createElement('canvas');
@@ -17,8 +18,8 @@ var stats = document.getElementById('stats');
 
     img.onload = function() {
         var c = <HTMLCanvasElement>document.getElementById('myCanvas');
-        let t = c.getContext('2d');
-        // let t = c.getContext('webgl');
+        // let t = c.getContext('2d');
+        let t = c.getContext('webgl');
 
         c.width = img.width;
         c.height = img.height;
@@ -32,18 +33,18 @@ var stats = document.getElementById('stats');
         var baseImageData =  inMemoryContext2.getImageData(0, 0, c.width, c.height);
         inMemoryContext2.clearRect(0, 0, c.width, c.height);
 
-        // const inMemoryRenderer = new WebGLChromosomeRenderer(inMemoryContext1);
-        const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
+        const inMemoryRenderer = new WebGLChromosomeRenderer(inMemoryContext1);
+        // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         const fitnessCalc = new ChromosomeFitnessCalculator(inMemoryRenderer, baseImageData);
-        const chromosomeSize = 50;
+        const chromosomeSize = 300;
 
-        var populationSize = 50;
+        var populationSize = 30;
         var BestPopulationCutOff = Math.floor(populationSize/4);
         var generation = 0;
 
         let population: Chromosome[] = [];
         for (let i = 0; i < populationSize; i++) population.push(Chromosome.getRandomChromosome(chromosomeSize));
-        population.sort((a, b) => fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a));
+        // population.sort((a, b) => fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a));
 
         function start() {
             var newPopulation: Chromosome[] = [];
@@ -59,14 +60,13 @@ var stats = document.getElementById('stats');
             newPopulation.sort((a, b) => fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a));
             population = newPopulation;
             generation++;
-            inMemoryRenderer.render(population[0], c.width, c.height);
-            t.putImageData(inMemoryRenderer.getImageData(c.width, c.height), 0, 0);
+            // new WebGLChromosomeRenderer(t).render(population[0], c.width, c.height);
             let fitnessInPercent = 100 * fitnessCalc.calculateFitness(population[0]) / (c.width * c.height * 4 * (255*255));
             stats.innerHTML = ('fitness: ' + fitnessInPercent.toFixed(2) + '<br />Generation: ' + generation);
         }
 
         // new Canvas2DChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
-        // new WebGLChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
-        setInterval(start, 10);
+        new WebGLChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
+        // setInterval(start, 10);
     }
 }
