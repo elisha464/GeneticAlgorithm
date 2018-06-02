@@ -1,4 +1,4 @@
-class CircleTextureBuilder {
+export default class CircleTextureBuilder {
     constructor() {
 
     }
@@ -11,10 +11,10 @@ class CircleTextureBuilder {
         return Math.sqrt((x2-x1) * (x2-x1) + (y2-y1) * (y2-y1));
     }
 
-    build(textureSize: number): Uint8Array {
+    build(textureSize: number): ImageData {
         if(!this.checkPowOf2(textureSize)) throw new Error("Texture Size Must Be A Power Of 2");
 
-        let result = new Uint8Array(textureSize * textureSize);
+        let result = new ImageData(textureSize, textureSize);
 
         for (let row = 0; row < textureSize; row++) {
             for (let col = 0; col < textureSize; col++) {
@@ -22,7 +22,12 @@ class CircleTextureBuilder {
                 let x = col - textureSize / 2;
                 let y = row - textureSize / 2;
                 if (this.calcDistance(x, y, 0, 0) <= textureSize / 2) val = 255;
-                result[row * textureSize + col] = val;
+
+                let pixelIndex = (row * textureSize + col) * 4;
+                result.data[pixelIndex + 0] = val;
+                result.data[pixelIndex + 1] = val;
+                result.data[pixelIndex + 2] = val;
+                result.data[pixelIndex + 3] = val;
             }
         }
 
