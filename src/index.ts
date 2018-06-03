@@ -33,6 +33,7 @@ var stats = document.getElementById('stats');
         var baseImageData =  inMemoryContext2.getImageData(0, 0, c.width, c.height);
         inMemoryContext2.clearRect(0, 0, c.width, c.height);
 
+        const mainRenderer = new WebGLChromosomeRenderer(t);
         const inMemoryRenderer = new WebGLChromosomeRenderer(inMemoryContext1);
         // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         const fitnessCalc = new ChromosomeFitnessCalculator(inMemoryRenderer, baseImageData);
@@ -44,7 +45,7 @@ var stats = document.getElementById('stats');
 
         let population: Chromosome[] = [];
         for (let i = 0; i < populationSize; i++) population.push(Chromosome.getRandomChromosome(chromosomeSize));
-        // population.sort((a, b) => fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a));
+        population.sort((a, b) => fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a));
 
         function start() {
             var newPopulation: Chromosome[] = [];
@@ -60,13 +61,13 @@ var stats = document.getElementById('stats');
             newPopulation.sort((a, b) => fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a));
             population = newPopulation;
             generation++;
-            // new WebGLChromosomeRenderer(t).render(population[0], c.width, c.height);
+            mainRenderer.render(population[0], c.width, c.height);
             let fitnessInPercent = 100 * fitnessCalc.calculateFitness(population[0]) / (c.width * c.height * 4 * (255*255));
             stats.innerHTML = ('fitness: ' + fitnessInPercent.toFixed(2) + '<br />Generation: ' + generation);
         }
 
         // new Canvas2DChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
-        new WebGLChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
-        // setInterval(start, 10);
+        // new WebGLChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
+        setInterval(start, 10);
     }
 }
