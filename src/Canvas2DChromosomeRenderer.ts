@@ -8,7 +8,7 @@ export default class Canvas2DChromosomeRenderer implements IChromosomeRenderer {
         this.renderingContext.clearRect(0, 0, width, height);
         chromosome.circles.forEach(c => {
             this.renderingContext.beginPath();
-            this.renderingContext.fillStyle = c.color.toString();
+            this.renderingContext.fillStyle = c.color.toCssString();
             this.renderingContext.arc(c.x * width, c.y * height, c.radius * Math.min(width, height), 0, Math.PI * 2);
             this.renderingContext.fill();
         });

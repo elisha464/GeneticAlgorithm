@@ -3,6 +3,19 @@ import Chromosome from "../Chromosome";
 import CircleTextureBuilder from "./CircleTextureBuilder";
 import Circle from "../Circle";
 
+const fillColols = (arr: Uint8Array, chromosome: Chromosome) => {
+    for (let i = 0; i < chromosome.circles.length; i++) {
+        const color = chromosome.circles[i].color;
+
+        for (let j = 0; j < 6; j++) {
+            arr[i*24 + j*4 + 0] = color.r;
+            arr[i*24 + j*4 + 1] = color.g;
+            arr[i*24 + j*4 + 2] = color.b;
+            arr[i*24 + j*4 + 3] = color.a;
+        }
+    }
+};
+
 export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
     private vsSource = `
     attribute vec4 aVertexPosition;
@@ -28,8 +41,8 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
     uniform sampler2D uSampler;
 
     void main() {
-        gl_FragColor = vVertexColor;
-        gl_FragColor.a *= texture2D(uSampler, vTextureCoord).a;
+        gl_FragColor = vVertexColor / 255.0;
+        gl_FragColor *= texture2D(uSampler, vTextureCoord).a;
     }`;
 
     private shaderProgram: WebGLProgram;
@@ -74,8 +87,8 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
         this.circleTexture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.circleTexture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, new CircleTextureBuilder().build(256));
-        gl.generateMipmap(gl.TEXTURE_2D);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+        gl.generateMipmap(gl.TEXTURE_2D);
 
         this.positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
@@ -89,18 +102,19 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
 
         this.vertColorBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertColorBuffer);
-        gl.vertexAttribPointer(this.programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(this.programInfo.attribLocations.vertexColor, 4, gl.UNSIGNED_BYTE, false, 0, 0);
         gl.enableVertexAttribArray(this.programInfo.attribLocations.vertexColor);
     }
 
     private loadShader(type: number, source: string): WebGLShader {
-        const shader = this.renderingContext.createShader(type);
-        this.renderingContext.shaderSource(shader, source);
-        this.renderingContext.compileShader(shader);
+        const gl = this.renderingContext;
+        const shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
 
-        if (!this.renderingContext.getShaderParameter(shader, this.renderingContext.COMPILE_STATUS)) {
-            const errorMessage = 'An error occurred compiling the shaders: ' + this.renderingContext.getShaderInfoLog(shader);
-            this.renderingContext.deleteShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            const errorMessage = 'An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader);
+            gl.deleteShader(shader);
             throw new Error(errorMessage);
         }
       
@@ -112,7 +126,7 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.viewport(0, 0, width, height);
@@ -134,32 +148,34 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
 
         const positions = chromosome.circles.reduce((a, b) => a.concat(positionsFromCircle(b)), []);
 
-        const texCoords = chromosome.circles.reduce((a, b) => a.concat([
-            0.0, 0.0,
-            1.0, 0.0,
-            0.0, 1.0,
-            1.0, 1.0,
-            1.0, 0.0,
-            0.0, 1.0,
-        ]), []);
+        const texCoords = new Float32Array(chromosome.circles.length * 6 * 2);
 
-        const vertColors = chromosome.circles.reduce((a, b) => a.concat([
-            b.color.r/255, b.color.g/255, b.color.b/255, b.color.a,
-            b.color.r/255, b.color.g/255, b.color.b/255, b.color.a,
-            b.color.r/255, b.color.g/255, b.color.b/255, b.color.a,
-            b.color.r/255, b.color.g/255, b.color.b/255, b.color.a,
-            b.color.r/255, b.color.g/255, b.color.b/255, b.color.a,
-            b.color.r/255, b.color.g/255, b.color.b/255, b.color.a,
-        ]), []);
+        for (let i = 0; i < chromosome.circles.length; i++) {
+            texCoords[i*12 + 0] = 0.0;
+            texCoords[i*12 + 1] = 0.0;
+            texCoords[i*12 + 2] = 1.0;
+            texCoords[i*12 + 3] = 0.0;
+            texCoords[i*12 + 4] = 0.0;
+            texCoords[i*12 + 5] = 1.0;
+            texCoords[i*12 + 6] = 1.0;
+            texCoords[i*12 + 7] = 1.0;
+            texCoords[i*12 + 8] = 1.0;
+            texCoords[i*12 + 9] = 0.0;
+            texCoords[i*12 + 10] = 0.0;
+            texCoords[i*12 + 11] = 1.0;
+        }
+
+        const vertColors = new Uint8Array(chromosome.circles.length * 6 * 4);
+        fillColols(vertColors, chromosome);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertColorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertColors), gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, vertColors, gl.STATIC_DRAW);
 
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.circleTexture);
@@ -173,9 +189,9 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
     }
 
     getImageData(width: number, height: number): ImageData {
-        const buffer = new Uint8Array(width * height * 4);
+        const result = new ImageData(width, height);
+        const buffer = new Uint8Array(result.data.buffer);
         this.renderingContext.readPixels(0, 0, width, height, this.renderingContext.RGBA, this.renderingContext.UNSIGNED_BYTE, buffer);
-        const result = new ImageData(Uint8ClampedArray.from(buffer), width, height);
         return result;
     }
 }

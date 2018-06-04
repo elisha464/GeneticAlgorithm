@@ -263,11 +263,11 @@ var Color = /** @class */ (function () {
         this._r = Math.floor(limitNumber(this._r, 0, 255));
         this._g = Math.floor(limitNumber(this._g, 0, 255));
         this._b = Math.floor(limitNumber(this._b, 0, 255));
-        this._a = limitNumber(this._a, 0, 1);
+        this._a = Math.floor(limitNumber(this._a, 0, 255));
     }
     Color.getRandomColor = function () {
         var randInt = function (n) { return Math.floor(Math.random() * n); };
-        return new Color(randInt(256), randInt(256), randInt(256), Math.random());
+        return new Color(randInt(256), randInt(256), randInt(256), randInt(256));
     };
     Object.defineProperty(Color.prototype, "r", {
         get: function () {
@@ -297,8 +297,8 @@ var Color = /** @class */ (function () {
         enumerable: true,
         configurable: true
     });
-    Color.prototype.toString = function () {
-        return "rgba(" + this.r + ", " + this.g + ", " + this.b + ", " + this.a + ")";
+    Color.prototype.toCssString = function () {
+        return "rgba(" + this.r + ", " + this.g + ", " + this.b + ", " + this.a / 255 + ")";
     };
     return Color;
 }());
@@ -332,7 +332,6 @@ window.loadImage = function (fileInput) {
     img.src = URL.createObjectURL(fileInput.files[0]);
     img.onload = function () {
         var c = document.getElementById('myCanvas');
-        // let t = c.getContext('2d');
         var t = c.getContext('webgl');
         c.width = img.width;
         c.height = img.height;
@@ -344,11 +343,11 @@ window.loadImage = function (fileInput) {
         var baseImageData = inMemoryContext2.getImageData(0, 0, c.width, c.height);
         inMemoryContext2.clearRect(0, 0, c.width, c.height);
         var mainRenderer = new WebGLChromosomeRenderer_1.default(t);
-        var inMemoryRenderer = new WebGLChromosomeRenderer_1.default(inMemoryContext1);
+        var inMemoryRenderer = new WebGLChromosomeRenderer_1.default(t);
         // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         var fitnessCalc = new ChromosomeFitnessCalculator_1.default(inMemoryRenderer, baseImageData);
-        var chromosomeSize = 300;
-        var populationSize = 30;
+        var chromosomeSize = 50;
+        var populationSize = 50;
         var BestPopulationCutOff = Math.floor(populationSize / 4);
         var generation = 0;
         var population = [];
@@ -408,12 +407,12 @@ var CircleTextureBuilder = /** @class */ (function () {
                 var val = 0;
                 var x = col - textureSize / 2;
                 var y = row - textureSize / 2;
-                if (this.calcDistance(x, y, 0, 0) <= textureSize / 2)
+                if (this.calcDistance(x, y, 0, 0) < (textureSize / 2) * 0.9)
                     val = 255;
                 var pixelIndex = (row * textureSize + col) * 4;
-                result.data[pixelIndex + 0] = val;
-                result.data[pixelIndex + 1] = val;
-                result.data[pixelIndex + 2] = val;
+                result.data[pixelIndex + 0] = 0;
+                result.data[pixelIndex + 1] = 0;
+                result.data[pixelIndex + 2] = 0;
                 result.data[pixelIndex + 3] = val;
             }
         }
@@ -437,11 +436,22 @@ exports.default = CircleTextureBuilder;
 
 Object.defineProperty(exports, "__esModule", { value: true });
 var CircleTextureBuilder_1 = __webpack_require__(/*! ./CircleTextureBuilder */ "./src/webgl/CircleTextureBuilder.ts");
+var fillColols = function (arr, chromosome) {
+    for (var i = 0; i < chromosome.circles.length; i++) {
+        var color = chromosome.circles[i].color;
+        for (var j = 0; j < 6; j++) {
+            arr[i * 24 + j * 4 + 0] = color.r;
+            arr[i * 24 + j * 4 + 1] = color.g;
+            arr[i * 24 + j * 4 + 2] = color.b;
+            arr[i * 24 + j * 4 + 3] = color.a;
+        }
+    }
+};
 var WebGLChromosomeRenderer = /** @class */ (function () {
     function WebGLChromosomeRenderer(renderingContext) {
         this.renderingContext = renderingContext;
         this.vsSource = "\n    attribute vec4 aVertexPosition;\n    attribute vec2 aTextureCoord;\n    attribute vec4 aVertexColor;\n\n    uniform vec2 uResolution;\n\n    varying highp vec2 vTextureCoord;\n    varying highp vec4 vVertexColor;\n\n    void main() {\n        vec4 scaledPosition = aVertexPosition * vec4(2.0 / uResolution.x, 2.0 / uResolution.y, 1.0, 1.0);\n        gl_Position = scaledPosition + vec4(-1.0, -1.0, 0.0, 0.0);\n        vTextureCoord = aTextureCoord;\n        vVertexColor = aVertexColor;\n    }";
-        this.fsSource = "\n    varying highp vec2 vTextureCoord;\n    varying highp vec4 vVertexColor;\n\n    uniform sampler2D uSampler;\n\n    void main() {\n        gl_FragColor = vVertexColor;\n        gl_FragColor.a *= texture2D(uSampler, vTextureCoord).a;\n    }";
+        this.fsSource = "\n    varying highp vec2 vTextureCoord;\n    varying highp vec4 vVertexColor;\n\n    uniform sampler2D uSampler;\n\n    void main() {\n        gl_FragColor = vVertexColor / 255.0;\n        gl_FragColor *= texture2D(uSampler, vTextureCoord).a;\n    }";
         this.setup();
     }
     WebGLChromosomeRenderer.prototype.setup = function () {
@@ -469,8 +479,8 @@ var WebGLChromosomeRenderer = /** @class */ (function () {
         this.circleTexture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.circleTexture);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, new CircleTextureBuilder_1.default().build(256));
-        gl.generateMipmap(gl.TEXTURE_2D);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+        gl.generateMipmap(gl.TEXTURE_2D);
         this.positionBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
         gl.vertexAttribPointer(this.programInfo.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0);
@@ -481,16 +491,17 @@ var WebGLChromosomeRenderer = /** @class */ (function () {
         gl.enableVertexAttribArray(this.programInfo.attribLocations.textureCoord);
         this.vertColorBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertColorBuffer);
-        gl.vertexAttribPointer(this.programInfo.attribLocations.vertexColor, 4, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(this.programInfo.attribLocations.vertexColor, 4, gl.UNSIGNED_BYTE, false, 0, 0);
         gl.enableVertexAttribArray(this.programInfo.attribLocations.vertexColor);
     };
     WebGLChromosomeRenderer.prototype.loadShader = function (type, source) {
-        var shader = this.renderingContext.createShader(type);
-        this.renderingContext.shaderSource(shader, source);
-        this.renderingContext.compileShader(shader);
-        if (!this.renderingContext.getShaderParameter(shader, this.renderingContext.COMPILE_STATUS)) {
-            var errorMessage = 'An error occurred compiling the shaders: ' + this.renderingContext.getShaderInfoLog(shader);
-            this.renderingContext.deleteShader(shader);
+        var gl = this.renderingContext;
+        var shader = gl.createShader(type);
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            var errorMessage = 'An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader);
+            gl.deleteShader(shader);
             throw new Error(errorMessage);
         }
         return shader;
@@ -499,7 +510,7 @@ var WebGLChromosomeRenderer = /** @class */ (function () {
         var gl = this.renderingContext;
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.BLEND);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.viewport(0, 0, width, height);
         var positionsFromCircle = function (c) {
@@ -516,28 +527,29 @@ var WebGLChromosomeRenderer = /** @class */ (function () {
             ];
         };
         var positions = chromosome.circles.reduce(function (a, b) { return a.concat(positionsFromCircle(b)); }, []);
-        var texCoords = chromosome.circles.reduce(function (a, b) { return a.concat([
-            0.0, 0.0,
-            1.0, 0.0,
-            0.0, 1.0,
-            1.0, 1.0,
-            1.0, 0.0,
-            0.0, 1.0,
-        ]); }, []);
-        var vertColors = chromosome.circles.reduce(function (a, b) { return a.concat([
-            b.color.r / 255, b.color.g / 255, b.color.b / 255, b.color.a,
-            b.color.r / 255, b.color.g / 255, b.color.b / 255, b.color.a,
-            b.color.r / 255, b.color.g / 255, b.color.b / 255, b.color.a,
-            b.color.r / 255, b.color.g / 255, b.color.b / 255, b.color.a,
-            b.color.r / 255, b.color.g / 255, b.color.b / 255, b.color.a,
-            b.color.r / 255, b.color.g / 255, b.color.b / 255, b.color.a,
-        ]); }, []);
+        var texCoords = new Float32Array(chromosome.circles.length * 6 * 2);
+        for (var i = 0; i < chromosome.circles.length; i++) {
+            texCoords[i * 12 + 0] = 0.0;
+            texCoords[i * 12 + 1] = 0.0;
+            texCoords[i * 12 + 2] = 1.0;
+            texCoords[i * 12 + 3] = 0.0;
+            texCoords[i * 12 + 4] = 0.0;
+            texCoords[i * 12 + 5] = 1.0;
+            texCoords[i * 12 + 6] = 1.0;
+            texCoords[i * 12 + 7] = 1.0;
+            texCoords[i * 12 + 8] = 1.0;
+            texCoords[i * 12 + 9] = 0.0;
+            texCoords[i * 12 + 10] = 0.0;
+            texCoords[i * 12 + 11] = 1.0;
+        }
+        var vertColors = new Uint8Array(chromosome.circles.length * 6 * 4);
+        fillColols(vertColors, chromosome);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertColorBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertColors), gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, vertColors, gl.STATIC_DRAW);
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.circleTexture);
         gl.useProgram(this.shaderProgram);
@@ -546,9 +558,9 @@ var WebGLChromosomeRenderer = /** @class */ (function () {
         gl.drawArrays(gl.TRIANGLES, 0, 6 * chromosome.circles.length);
     };
     WebGLChromosomeRenderer.prototype.getImageData = function (width, height) {
-        var buffer = new Uint8Array(width * height * 4);
+        var result = new ImageData(width, height);
+        var buffer = new Uint8Array(result.data.buffer);
         this.renderingContext.readPixels(0, 0, width, height, this.renderingContext.RGBA, this.renderingContext.UNSIGNED_BYTE, buffer);
-        var result = new ImageData(Uint8ClampedArray.from(buffer), width, height);
         return result;
     };
     return WebGLChromosomeRenderer;

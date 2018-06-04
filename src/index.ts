@@ -18,7 +18,6 @@ var stats = document.getElementById('stats');
 
     img.onload = function() {
         var c = <HTMLCanvasElement>document.getElementById('myCanvas');
-        // let t = c.getContext('2d');
         let t = c.getContext('webgl');
 
         c.width = img.width;
@@ -34,12 +33,12 @@ var stats = document.getElementById('stats');
         inMemoryContext2.clearRect(0, 0, c.width, c.height);
 
         const mainRenderer = new WebGLChromosomeRenderer(t);
-        const inMemoryRenderer = new WebGLChromosomeRenderer(inMemoryContext1);
+        const inMemoryRenderer = new WebGLChromosomeRenderer(t);
         // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         const fitnessCalc = new ChromosomeFitnessCalculator(inMemoryRenderer, baseImageData);
-        const chromosomeSize = 300;
+        const chromosomeSize = 50;
 
-        var populationSize = 30;
+        var populationSize = 50;
         var BestPopulationCutOff = Math.floor(populationSize/4);
         var generation = 0;
 

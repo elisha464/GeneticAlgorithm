@@ -21,12 +21,12 @@ export default class CircleTextureBuilder {
                 let val = 0;
                 let x = col - textureSize / 2;
                 let y = row - textureSize / 2;
-                if (this.calcDistance(x, y, 0, 0) <= textureSize / 2) val = 255;
+                if (this.calcDistance(x, y, 0, 0) < (textureSize / 2) * 0.9) val = 255;
 
                 let pixelIndex = (row * textureSize + col) * 4;
-                result.data[pixelIndex + 0] = val;
-                result.data[pixelIndex + 1] = val;
-                result.data[pixelIndex + 2] = val;
+                result.data[pixelIndex + 0] = 0;
+                result.data[pixelIndex + 1] = 0;
+                result.data[pixelIndex + 2] = 0;
                 result.data[pixelIndex + 3] = val;
             }
         }
