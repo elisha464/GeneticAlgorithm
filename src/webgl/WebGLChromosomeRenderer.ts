@@ -188,10 +188,23 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
         
     }
 
+    private flipRows(row1: number, row2: number, id: ImageData) {
+        let temp;
+
+        for(let i = 0; i < id.width * 4; i++) {
+            temp = id.data[row1 * id.width * 4 + i];
+            id.data[row1 * id.width * 4 + i * 4] = id.data[row2 * id.width * 4 + i * 4];
+            id.data[row2 * id.width * 4 + i * 4] = temp;
+        }
+    }
+
     getImageData(width: number, height: number): ImageData {
         const result = new ImageData(width, height);
         const buffer = new Uint8Array(result.data.buffer);
         this.renderingContext.readPixels(0, 0, width, height, this.renderingContext.RGBA, this.renderingContext.UNSIGNED_BYTE, buffer);
+        for (let i = 0; i < height / 2; i++) {
+            this.flipRows(i, height - 1 - i, result);
+        }
         return result;
     }
 }

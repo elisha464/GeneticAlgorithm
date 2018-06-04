@@ -346,7 +346,7 @@ window.loadImage = function (fileInput) {
         var inMemoryRenderer = new WebGLChromosomeRenderer_1.default(t);
         // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         var fitnessCalc = new ChromosomeFitnessCalculator_1.default(inMemoryRenderer, baseImageData);
-        var chromosomeSize = 50;
+        var chromosomeSize = 30;
         var populationSize = 50;
         var BestPopulationCutOff = Math.floor(populationSize / 4);
         var generation = 0;
@@ -557,10 +557,21 @@ var WebGLChromosomeRenderer = /** @class */ (function () {
         gl.uniform1i(this.programInfo.uniformLocations.uSampler, 0);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * chromosome.circles.length);
     };
+    WebGLChromosomeRenderer.prototype.flipRows = function (row1, row2, id) {
+        var temp;
+        for (var i = 0; i < id.width * 4; i++) {
+            temp = id.data[row1 * id.width * 4 + i];
+            id.data[row1 * id.width * 4 + i * 4] = id.data[row2 * id.width * 4 + i * 4];
+            id.data[row2 * id.width * 4 + i * 4] = temp;
+        }
+    };
     WebGLChromosomeRenderer.prototype.getImageData = function (width, height) {
         var result = new ImageData(width, height);
         var buffer = new Uint8Array(result.data.buffer);
         this.renderingContext.readPixels(0, 0, width, height, this.renderingContext.RGBA, this.renderingContext.UNSIGNED_BYTE, buffer);
+        for (var i = 0; i < height / 2; i++) {
+            this.flipRows(i, height - 1 - i, result);
+        }
         return result;
     };
     return WebGLChromosomeRenderer;
