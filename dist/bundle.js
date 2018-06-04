@@ -132,15 +132,16 @@ var ChromosomeFitnessCalculator = /** @class */ (function () {
     }
     ChromosomeFitnessCalculator.prototype.calculateFitness = function (chromosome) {
         this.renderer.render(chromosome, this.base.width, this.base.height);
+        var baseData = this.base.data;
         var data = this.renderer.getImageData(this.base.width, this.base.height).data;
         var len = this.base.width * this.base.height * 4;
         var result = 0;
         var r, g, b, a;
         for (var i = 0; i < len; i += 4) {
-            r = this.base.data[i + 0] - data[i + 0];
-            g = this.base.data[i + 1] - data[i + 1];
-            b = this.base.data[i + 2] - data[i + 2];
-            a = this.base.data[i + 3] - data[i + 3];
+            r = baseData[i + 0] - data[i + 0];
+            g = baseData[i + 1] - data[i + 1];
+            b = baseData[i + 2] - data[i + 2];
+            a = baseData[i + 3] - data[i + 3];
             result += (r * r) + (g * g) + (b * b) + (a * a);
         }
         return (len * (255 * 255)) - result;
@@ -307,6 +308,35 @@ exports.default = Color;
 
 /***/ }),
 
+/***/ "./src/FitnessedChromosome.ts":
+/*!************************************!*\
+  !*** ./src/FitnessedChromosome.ts ***!
+  \************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", { value: true });
+var FitnessedChromosome = /** @class */ (function () {
+    function FitnessedChromosome(chromosome, fitnessCalculator) {
+        this.chromosome = chromosome;
+        this._fitness = fitnessCalculator.calculateFitness(chromosome);
+    }
+    Object.defineProperty(FitnessedChromosome.prototype, "fitness", {
+        get: function () {
+            return this._fitness;
+        },
+        enumerable: true,
+        configurable: true
+    });
+    return FitnessedChromosome;
+}());
+exports.default = FitnessedChromosome;
+
+
+/***/ }),
+
 /***/ "./src/index.ts":
 /*!**********************!*\
   !*** ./src/index.ts ***!
@@ -320,6 +350,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var Chromosome_1 = __webpack_require__(/*! ./Chromosome */ "./src/Chromosome.ts");
 var ChromosomeFitnessCalculator_1 = __webpack_require__(/*! ./ChromosomeFitnessCalculator */ "./src/ChromosomeFitnessCalculator.ts");
 var WebGLChromosomeRenderer_1 = __webpack_require__(/*! ./webgl/WebGLChromosomeRenderer */ "./src/webgl/WebGLChromosomeRenderer.ts");
+var FitnessedChromosome_1 = __webpack_require__(/*! ./FitnessedChromosome */ "./src/FitnessedChromosome.ts");
 var inMemoryCanvas1 = document.createElement('canvas');
 var inMemoryCanvas2 = document.createElement('canvas');
 var inMemoryContext1 = inMemoryCanvas1.getContext('webgl');
@@ -346,28 +377,28 @@ window.loadImage = function (fileInput) {
         var inMemoryRenderer = new WebGLChromosomeRenderer_1.default(t);
         // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         var fitnessCalc = new ChromosomeFitnessCalculator_1.default(inMemoryRenderer, baseImageData);
-        var chromosomeSize = 30;
-        var populationSize = 50;
+        var chromosomeSize = 300;
+        var populationSize = 30;
         var BestPopulationCutOff = Math.floor(populationSize / 4);
         var generation = 0;
         var population = [];
         for (var i = 0; i < populationSize; i++)
-            population.push(Chromosome_1.default.getRandomChromosome(chromosomeSize));
-        population.sort(function (a, b) { return fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a); });
+            population.push(new FitnessedChromosome_1.default(Chromosome_1.default.getRandomChromosome(chromosomeSize), fitnessCalc));
+        population.sort(function (a, b) { return b.fitness - a.fitness; });
         function start() {
             var newPopulation = [];
             for (var i = 0; i < populationSize; i++) {
                 var arg1 = population[Math.floor(Math.random() * populationSize) % BestPopulationCutOff];
                 var arg2 = population[Math.floor(Math.random() * populationSize) % BestPopulationCutOff];
-                var newChromosome = Chromosome_1.default.fromParents(arg1, arg2);
+                var newChromosome = Chromosome_1.default.fromParents(arg1.chromosome, arg2.chromosome);
                 newChromosome.mutate(0.1);
-                newPopulation.push(newChromosome);
+                newPopulation.push(new FitnessedChromosome_1.default(newChromosome, fitnessCalc));
             }
-            newPopulation.sort(function (a, b) { return fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a); });
+            newPopulation.sort(function (a, b) { return b.fitness - a.fitness; });
             population = newPopulation;
             generation++;
-            mainRenderer.render(population[0], c.width, c.height);
-            var fitnessInPercent = 100 * fitnessCalc.calculateFitness(population[0]) / (c.width * c.height * 4 * (255 * 255));
+            mainRenderer.render(population[0].chromosome, c.width, c.height);
+            var fitnessInPercent = 100 * population[0].fitness / (c.width * c.height * 4 * (255 * 255));
             stats.innerHTML = ('fitness: ' + fitnessInPercent.toFixed(2) + '<br />Generation: ' + generation);
         }
         // new Canvas2DChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
@@ -453,6 +484,7 @@ var WebGLChromosomeRenderer = /** @class */ (function () {
         this.vsSource = "\n    attribute vec4 aVertexPosition;\n    attribute vec2 aTextureCoord;\n    attribute vec4 aVertexColor;\n\n    uniform vec2 uResolution;\n\n    varying highp vec2 vTextureCoord;\n    varying highp vec4 vVertexColor;\n\n    void main() {\n        vec4 scaledPosition = aVertexPosition * vec4(2.0 / uResolution.x, 2.0 / uResolution.y, 1.0, 1.0);\n        gl_Position = scaledPosition + vec4(-1.0, -1.0, 0.0, 0.0);\n        vTextureCoord = aTextureCoord;\n        vVertexColor = aVertexColor;\n    }";
         this.fsSource = "\n    varying highp vec2 vTextureCoord;\n    varying highp vec4 vVertexColor;\n\n    uniform sampler2D uSampler;\n\n    void main() {\n        gl_FragColor = vVertexColor / 255.0;\n        gl_FragColor *= texture2D(uSampler, vTextureCoord).a;\n    }";
         this.setup();
+        this.insideCanvasContext = document.createElement('canvas').getContext('2d');
     }
     WebGLChromosomeRenderer.prototype.setup = function () {
         var gl = this.renderingContext;
@@ -561,8 +593,8 @@ var WebGLChromosomeRenderer = /** @class */ (function () {
         var temp;
         for (var i = 0; i < id.width * 4; i++) {
             temp = id.data[row1 * id.width * 4 + i];
-            id.data[row1 * id.width * 4 + i * 4] = id.data[row2 * id.width * 4 + i * 4];
-            id.data[row2 * id.width * 4 + i * 4] = temp;
+            id.data[row1 * id.width * 4 + i] = id.data[row2 * id.width * 4 + i];
+            id.data[row2 * id.width * 4 + i] = temp;
         }
     };
     WebGLChromosomeRenderer.prototype.getImageData = function (width, height) {

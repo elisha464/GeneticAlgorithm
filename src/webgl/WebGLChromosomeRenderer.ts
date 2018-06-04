@@ -54,8 +54,11 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
 
     private programInfo: any;
 
+    private insideCanvasContext: CanvasRenderingContext2D;
+
     constructor(private renderingContext: WebGLRenderingContext) {
         this.setup();
+        this.insideCanvasContext = document.createElement('canvas').getContext('2d');
     }
 
     private setup(): void {
@@ -193,8 +196,8 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
 
         for(let i = 0; i < id.width * 4; i++) {
             temp = id.data[row1 * id.width * 4 + i];
-            id.data[row1 * id.width * 4 + i * 4] = id.data[row2 * id.width * 4 + i * 4];
-            id.data[row2 * id.width * 4 + i * 4] = temp;
+            id.data[row1 * id.width * 4 + i] = id.data[row2 * id.width * 4 + i];
+            id.data[row2 * id.width * 4 + i] = temp;
         }
     }
 

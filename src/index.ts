@@ -3,6 +3,7 @@ import Chromosome from './Chromosome';
 import ChromosomeFitnessCalculator from './ChromosomeFitnessCalculator';
 import WebGLChromosomeRenderer from './webgl/WebGLChromosomeRenderer';
 import CircleTextureBuilder from './webgl/CircleTextureBuilder';
+import FitnessedChromosome from './FitnessedChromosome';
 
 let inMemoryCanvas1 = document.createElement('canvas');
 let inMemoryCanvas2 = document.createElement('canvas');
@@ -36,32 +37,32 @@ var stats = document.getElementById('stats');
         const inMemoryRenderer = new WebGLChromosomeRenderer(t);
         // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         const fitnessCalc = new ChromosomeFitnessCalculator(inMemoryRenderer, baseImageData);
-        const chromosomeSize = 50;
+        const chromosomeSize = 300;
 
-        var populationSize = 50;
+        var populationSize = 30;
         var BestPopulationCutOff = Math.floor(populationSize/4);
         var generation = 0;
 
-        let population: Chromosome[] = [];
-        for (let i = 0; i < populationSize; i++) population.push(Chromosome.getRandomChromosome(chromosomeSize));
-        population.sort((a, b) => fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a));
+        let population: FitnessedChromosome[] = [];
+        for (let i = 0; i < populationSize; i++) population.push(new FitnessedChromosome(Chromosome.getRandomChromosome(chromosomeSize), fitnessCalc));
+        population.sort((a, b) => b.fitness - a.fitness);
 
         function start() {
-            var newPopulation: Chromosome[] = [];
+            var newPopulation: FitnessedChromosome[] = [];
             
             for(let i = 0; i < populationSize; i++) {   
                 const arg1 = population[Math.floor(Math.random() * populationSize) % BestPopulationCutOff];
                 const arg2 = population[Math.floor(Math.random() * populationSize) % BestPopulationCutOff];
-                const newChromosome = Chromosome.fromParents(arg1, arg2);
+                const newChromosome = Chromosome.fromParents(arg1.chromosome, arg2.chromosome);
                 newChromosome.mutate(0.1);
-                newPopulation.push(newChromosome);
+                newPopulation.push(new FitnessedChromosome(newChromosome, fitnessCalc));
             }
             
-            newPopulation.sort((a, b) => fitnessCalc.calculateFitness(b) - fitnessCalc.calculateFitness(a));
+            newPopulation.sort((a, b) => b.fitness - a.fitness);
             population = newPopulation;
             generation++;
-            mainRenderer.render(population[0], c.width, c.height);
-            let fitnessInPercent = 100 * fitnessCalc.calculateFitness(population[0]) / (c.width * c.height * 4 * (255*255));
+            mainRenderer.render(population[0].chromosome, c.width, c.height);
+            let fitnessInPercent = 100 * population[0].fitness / (c.width * c.height * 4 * (255*255));
             stats.innerHTML = ('fitness: ' + fitnessInPercent.toFixed(2) + '<br />Generation: ' + generation);
         }
 
