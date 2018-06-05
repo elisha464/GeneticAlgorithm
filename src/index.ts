@@ -35,7 +35,6 @@ var stats = document.getElementById('stats');
 
         const mainRenderer = new WebGLChromosomeRenderer(t);
         const inMemoryRenderer = new WebGLChromosomeRenderer(t);
-        // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         const fitnessCalc = new ChromosomeFitnessCalculator(inMemoryRenderer, baseImageData);
         const chromosomeSize = 300;
 
@@ -44,7 +43,11 @@ var stats = document.getElementById('stats');
         var generation = 0;
 
         let population: FitnessedChromosome[] = [];
-        for (let i = 0; i < populationSize; i++) population.push(new FitnessedChromosome(Chromosome.getRandomChromosome(chromosomeSize), fitnessCalc));
+        for (let i = 0; i < populationSize; i++) {
+            const randomChromosome = Chromosome.getRandomChromosome(chromosomeSize);
+            const fitness = fitnessCalc.calculateFitness(randomChromosome, inMemoryRenderer instanceof WebGLChromosomeRenderer);
+            population.push(new FitnessedChromosome(randomChromosome, fitness));
+        }
         population.sort((a, b) => b.fitness - a.fitness);
 
         function start() {
@@ -55,7 +58,8 @@ var stats = document.getElementById('stats');
                 const arg2 = population[Math.floor(Math.random() * populationSize) % BestPopulationCutOff];
                 const newChromosome = Chromosome.fromParents(arg1.chromosome, arg2.chromosome);
                 newChromosome.mutate(0.1);
-                newPopulation.push(new FitnessedChromosome(newChromosome, fitnessCalc));
+                const fitness = fitnessCalc.calculateFitness(newChromosome, inMemoryRenderer instanceof WebGLChromosomeRenderer);
+                newPopulation.push(new FitnessedChromosome(newChromosome, fitness));
             }
             
             newPopulation.sort((a, b) => b.fitness - a.fitness);
@@ -66,8 +70,6 @@ var stats = document.getElementById('stats');
             stats.innerHTML = ('fitness: ' + fitnessInPercent.toFixed(2) + '<br />Generation: ' + generation);
         }
 
-        // new Canvas2DChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
-        // new WebGLChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
         setInterval(start, 10);
     }
 }

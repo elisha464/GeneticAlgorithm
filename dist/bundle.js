@@ -130,21 +130,34 @@ var ChromosomeFitnessCalculator = /** @class */ (function () {
         this.renderer = renderer;
         this.base = base;
     }
-    ChromosomeFitnessCalculator.prototype.calculateFitness = function (chromosome) {
+    ChromosomeFitnessCalculator.prototype.calculateFitness = function (chromosome, flipY) {
+        if (flipY === void 0) { flipY = false; }
         this.renderer.render(chromosome, this.base.width, this.base.height);
         var baseData = this.base.data;
         var data = this.renderer.getImageData(this.base.width, this.base.height).data;
-        var len = this.base.width * this.base.height * 4;
+        var width = this.base.width;
+        var height = this.base.height;
+        var comparedRow = 0;
         var result = 0;
         var r, g, b, a;
-        for (var i = 0; i < len; i += 4) {
-            r = baseData[i + 0] - data[i + 0];
-            g = baseData[i + 1] - data[i + 1];
-            b = baseData[i + 2] - data[i + 2];
-            a = baseData[i + 3] - data[i + 3];
-            result += (r * r) + (g * g) + (b * b) + (a * a);
+        // for (let i=0; i < len; i += 4) {
+        //     r = baseData[i + 0] - data[i + 0];
+        //     g = baseData[i + 1] - data[i + 1];
+        //     b = baseData[i + 2] - data[i + 2];
+        //     a = baseData[i + 3] - data[i + 3];
+        //     result += (r*r) + (g*g) + (b*b) + (a*a);
+        // }
+        for (var row = 0; row < height; row++) {
+            comparedRow = (flipY ? height - 1 - row : row);
+            for (var col = 0; col < width; col++) {
+                r = baseData[row * width * 4 + col * 4 + 0] - data[comparedRow * width * 4 + col * 4 + 0];
+                g = baseData[row * width * 4 + col * 4 + 1] - data[comparedRow * width * 4 + col * 4 + 1];
+                b = baseData[row * width * 4 + col * 4 + 2] - data[comparedRow * width * 4 + col * 4 + 2];
+                a = baseData[row * width * 4 + col * 4 + 3] - data[comparedRow * width * 4 + col * 4 + 3];
+                result += (r * r) + (g * g) + (b * b) + (a * a);
+            }
         }
-        return (len * (255 * 255)) - result;
+        return (width * height * 4 * (255 * 255)) - result;
     };
     return ChromosomeFitnessCalculator;
 }());
@@ -319,17 +332,10 @@ exports.default = Color;
 
 Object.defineProperty(exports, "__esModule", { value: true });
 var FitnessedChromosome = /** @class */ (function () {
-    function FitnessedChromosome(chromosome, fitnessCalculator) {
+    function FitnessedChromosome(chromosome, fitness) {
         this.chromosome = chromosome;
-        this._fitness = fitnessCalculator.calculateFitness(chromosome);
+        this.fitness = fitness;
     }
-    Object.defineProperty(FitnessedChromosome.prototype, "fitness", {
-        get: function () {
-            return this._fitness;
-        },
-        enumerable: true,
-        configurable: true
-    });
     return FitnessedChromosome;
 }());
 exports.default = FitnessedChromosome;
@@ -375,15 +381,17 @@ window.loadImage = function (fileInput) {
         inMemoryContext2.clearRect(0, 0, c.width, c.height);
         var mainRenderer = new WebGLChromosomeRenderer_1.default(t);
         var inMemoryRenderer = new WebGLChromosomeRenderer_1.default(t);
-        // const inMemoryRenderer = new Canvas2DChromosomeRenderer(inMemoryContext2);
         var fitnessCalc = new ChromosomeFitnessCalculator_1.default(inMemoryRenderer, baseImageData);
         var chromosomeSize = 300;
         var populationSize = 30;
         var BestPopulationCutOff = Math.floor(populationSize / 4);
         var generation = 0;
         var population = [];
-        for (var i = 0; i < populationSize; i++)
-            population.push(new FitnessedChromosome_1.default(Chromosome_1.default.getRandomChromosome(chromosomeSize), fitnessCalc));
+        for (var i = 0; i < populationSize; i++) {
+            var randomChromosome = Chromosome_1.default.getRandomChromosome(chromosomeSize);
+            var fitness = fitnessCalc.calculateFitness(randomChromosome, inMemoryRenderer instanceof WebGLChromosomeRenderer_1.default);
+            population.push(new FitnessedChromosome_1.default(randomChromosome, fitness));
+        }
         population.sort(function (a, b) { return b.fitness - a.fitness; });
         function start() {
             var newPopulation = [];
@@ -392,7 +400,8 @@ window.loadImage = function (fileInput) {
                 var arg2 = population[Math.floor(Math.random() * populationSize) % BestPopulationCutOff];
                 var newChromosome = Chromosome_1.default.fromParents(arg1.chromosome, arg2.chromosome);
                 newChromosome.mutate(0.1);
-                newPopulation.push(new FitnessedChromosome_1.default(newChromosome, fitnessCalc));
+                var fitness = fitnessCalc.calculateFitness(newChromosome, inMemoryRenderer instanceof WebGLChromosomeRenderer_1.default);
+                newPopulation.push(new FitnessedChromosome_1.default(newChromosome, fitness));
             }
             newPopulation.sort(function (a, b) { return b.fitness - a.fitness; });
             population = newPopulation;
@@ -401,8 +410,6 @@ window.loadImage = function (fileInput) {
             var fitnessInPercent = 100 * population[0].fitness / (c.width * c.height * 4 * (255 * 255));
             stats.innerHTML = ('fitness: ' + fitnessInPercent.toFixed(2) + '<br />Generation: ' + generation);
         }
-        // new Canvas2DChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
-        // new WebGLChromosomeRenderer(t).render(Chromosome.getRandomChromosome(chromosomeSize), c.width, c.height);
         setInterval(start, 10);
     };
 };
@@ -589,21 +596,10 @@ var WebGLChromosomeRenderer = /** @class */ (function () {
         gl.uniform1i(this.programInfo.uniformLocations.uSampler, 0);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * chromosome.circles.length);
     };
-    WebGLChromosomeRenderer.prototype.flipRows = function (row1, row2, id) {
-        var temp;
-        for (var i = 0; i < id.width * 4; i++) {
-            temp = id.data[row1 * id.width * 4 + i];
-            id.data[row1 * id.width * 4 + i] = id.data[row2 * id.width * 4 + i];
-            id.data[row2 * id.width * 4 + i] = temp;
-        }
-    };
     WebGLChromosomeRenderer.prototype.getImageData = function (width, height) {
         var result = new ImageData(width, height);
         var buffer = new Uint8Array(result.data.buffer);
         this.renderingContext.readPixels(0, 0, width, height, this.renderingContext.RGBA, this.renderingContext.UNSIGNED_BYTE, buffer);
-        for (var i = 0; i < height / 2; i++) {
-            this.flipRows(i, height - 1 - i, result);
-        }
         return result;
     };
     return WebGLChromosomeRenderer;
