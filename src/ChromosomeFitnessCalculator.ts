@@ -4,8 +4,8 @@ import Chromosome from "./Chromosome";
 export default class ChromosomeFitnessCalculator {
     constructor(private renderer: IChromosomeRenderer, private base: ImageData) {}
 
-    public calculateFitness(chromosome: Chromosome, flipY: boolean = false): number {
-        this.renderer.render(chromosome, this.base.width, this.base.height);
+    public async calculateFitness(chromosome: Chromosome, flipY: boolean = false): Promise<number> {
+        await this.renderer.render(chromosome, this.base.width, this.base.height);
         const baseData = this.base.data;
         const data = this.renderer.getImageData(this.base.width, this.base.height).data;
         const width = this.base.width;

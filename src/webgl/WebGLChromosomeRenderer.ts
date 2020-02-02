@@ -124,7 +124,7 @@ export default class WebGLChromosomeRenderer implements IChromosomeRenderer {
         return shader;
       }
 
-    render(chromosome: Chromosome, width: number, height: number): void {
+    public async render(chromosome: Chromosome, width: number, height: number): Promise<void> {
         const gl = this.renderingContext;
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
 

@@ -4,7 +4,7 @@ import Chromosome from "./Chromosome";
 export default class Canvas2DChromosomeRenderer implements IChromosomeRenderer {
     constructor(private renderingContext: CanvasRenderingContext2D) {}
 
-    public render(chromosome: Chromosome, width: number, height: number): void {
+    public async render(chromosome: Chromosome, width: number, height: number): Promise<void> {
         this.renderingContext.clearRect(0, 0, width, height);
         chromosome.circles.forEach(c => {
             this.renderingContext.beginPath();
